@@ -235,7 +235,7 @@ WinMain(
     //WindowClass.hIcon;
     WindowClass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    WindowClass.lpszClassName = "CopyPasta";
+    WindowClass.lpszClassName = "BufferPaste";
 
     if(RegisterClass(&WindowClass))
     {
@@ -243,7 +243,7 @@ WinMain(
             CreateWindowExA(
                     0,
                     WindowClass.lpszClassName,
-                    "CopyPasta",
+                    "BufferPaste",
                     WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                     CW_USEDEFAULT,
                     CW_USEDEFAULT,
