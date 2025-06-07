@@ -1,5 +1,7 @@
 #include <windows.h>
 
+#define internal static
+
 #define ID_EDIT1 1001
 #define ID_EDIT2 1002
 #define ID_EDIT3 1003
@@ -35,7 +37,7 @@ MainWindowCallback(HWND Window,
         case WM_CREATE:
         {
             // Create title
-            CreateWindow("STATIC", "Clipboard Buffer Manager - Save clipboard content to buffers, then copy back when needed",
+            CreateWindow("STATIC", "BufferPaste - Save clipboard content to buffers, then copy back when needed",
                 WS_VISIBLE | WS_CHILD,
                 10, 10, 600, 20,
                 Window, (HMENU)(UINT_PTR)ID_STATIC1, NULL, NULL);
@@ -118,6 +120,13 @@ MainWindowCallback(HWND Window,
             return 0;
         }
 
+        case WM_PAINT:
+        {
+            PAINTSTRUCT Paint;
+            HDC DeviceContext = BeginPaint(Window, &Paint);
+            EndPaint(Window, &Paint);
+        } break;
+
         case WM_DESTROY:
         {
           PostQuitMessage(0);  
@@ -127,11 +136,6 @@ MainWindowCallback(HWND Window,
         case WM_ACTIVATEAPP:
         {
             OutputDebugStringA("WM_ACTIVATEAPP\n");
-        } break;
-
-        case WM_PAINT:
-        {
-            OutputDebugStringA("WM_PAINT\n");
         } break;
 
         default:
