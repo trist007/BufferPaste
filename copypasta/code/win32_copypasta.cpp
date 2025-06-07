@@ -9,6 +9,17 @@ MainWindowCallback(HWND Window,
     LRESULT Result = 0;
     switch(Message)
     {
+        case WM_CREATE:
+        {
+            CreateWindow("STATIC", "BUF0:", WS_VISIBLE | WS_CHILD,
+                    20, 20, 80, 20, Window, (HMENU)1004, NULL, NULL);
+            CreateWindow("STATIC", "BUF1:", WS_VISIBLE | WS_CHILD,
+                    20, 60, 80, 20, Window, (HMENU)1004, NULL, NULL);
+            CreateWindow("STATIC", "BUF2:", WS_VISIBLE | WS_CHILD,
+                    20, 100, 80, 20, Window, (HMENU)1004, NULL, NULL);
+            CreateWindow("STATIC", "BUF3:", WS_VISIBLE | WS_CHILD,
+                    20, 140, 80, 20, Window, (HMENU)1004, NULL, NULL);
+        }
         case WM_SIZE:
         {
             OutputDebugStringA("WM_SIZE\n");
@@ -16,13 +27,14 @@ MainWindowCallback(HWND Window,
 
         case WM_DESTROY:
         {
-            OutputDebugStringA("WM_DESTROY\n");
-        } break;
+          PostQuitMessage(0);  
+          return 0;
+        }
 
         case WM_CLOSE:
         {
-            OutputDebugStringA("WM_CLOSE\n");
-        } break;
+            DestroyWindow(Window);   
+        }
 
         case WM_ACTIVATEAPP:
         {
@@ -75,6 +87,8 @@ WinMain(
     WindowClass.lpfnWndProc = MainWindowCallback;
     WindowClass.hInstance = Instance;
     //WindowClass.hIcon;
+    WindowClass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     WindowClass.lpszClassName = "CopyPasta";
 
     if(RegisterClass(&WindowClass))
@@ -87,8 +101,8 @@ WinMain(
                     WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                     CW_USEDEFAULT,
                     CW_USEDEFAULT,
-                    CW_USEDEFAULT,
-                    CW_USEDEFAULT,
+                    400,
+                    225,
                     0,
                     0,
                     Instance,
