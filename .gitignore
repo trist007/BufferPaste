@@ -1,0 +1,69 @@
+$RECYCLE.BIN
+System Volume Information/
+Handmade Hero/
+
+# Handmade Hero Stuff
+*.hmi
+
+# Emacs Stuff
+org/
+.#*
+
+# Build directories
+Debug/
+Release/
+x64/
+x86/
+build/
+[Bb]in/
+[Oo]bj/
+
+# MSVC/Visual Studio files
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.exp
+*.idb
+*.ipdb
+*.iobj
+*.pch
+*.tlog
+*.lastbuildstate
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.opendb
+*.suo
+*.user
+*.sdf
+*.opensdf
+
+# Temporary and backup files
+*.tmp
+*~
+*.bak
+*.swp
+
+# Core dumps
+core.*
+*.stackdump
+
+# VS Code specific
+.vscode/
+*.code-workspace
+
+# Visual Studio specific
+.vs/
+
+# Windows specific
+Thumbs.db
+Desktop.ini
+
+# Build system specific
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
