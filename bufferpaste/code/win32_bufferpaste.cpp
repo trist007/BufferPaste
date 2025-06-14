@@ -362,7 +362,7 @@ void CopyBufferToClipboard(HWND hwnd, int editId)
     HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, textLength + 1);
     if (hMem != NULL) {
         char* pMem = (char*)GlobalLock(hMem);
-        strcpy_s(pMem, sizeof(buffer), buffer);
+        strcpy_s(pMem, textLength + 1, buffer);
         GlobalUnlock(hMem);
         
         SetClipboardData(CF_TEXT, hMem);
