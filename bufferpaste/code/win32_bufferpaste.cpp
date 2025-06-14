@@ -54,11 +54,6 @@ typedef double real64;
 #define Assert(Expression)
 #endif
 
-typedef struct thread_context
-{
-    int Placeholder;
-} thread_context;
-
 typedef struct debug_read_file_result
 {
     uint32 ContentsSize;
@@ -75,99 +70,6 @@ SafeTruncateUInt64(uint64 Value)
 }
 
 
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context *Thread, void *Memory)
-typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
-
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context *Thread, char *Filename)
-typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
-
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(thread_context *Thread, char *Filename, uint32 MemorySize, void *Memory)
-typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
-
-DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
-{
-    if(Memory)
-    {
-        VirtualFree(Memory, 0, MEM_RELEASE);
-    }
-}
-
-DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
-{
-    debug_read_file_result Result = {};
-    
-    HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-    if(FileHandle != INVALID_HANDLE_VALUE)
-    {
-        LARGE_INTEGER FileSize;
-        if(GetFileSizeEx(FileHandle, &FileSize))
-        {
-            uint32 FileSize32 = SafeTruncateUInt64(FileSize.QuadPart);
-            Result.Contents = VirtualAlloc(0, FileSize32, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-            if(Result.Contents)
-            {
-                DWORD BytesRead;
-                if(ReadFile(FileHandle, Result.Contents, FileSize32, &BytesRead, 0) &&
-                   (FileSize32 == BytesRead))
-                {
-                    // NOTE(casey): File read successfully
-                    Result.ContentsSize = FileSize32;
-                }
-                else
-                {                    
-                    // TODO(casey): Logging
-                    DEBUGPlatformFreeFileMemory(Thread, Result.Contents);
-                    Result.Contents = 0;
-                }
-            }
-            else
-            {
-                // TODO(casey): Logging
-            }
-        }
-        else
-        {
-            // TODO(casey): Logging
-        }
-
-        CloseHandle(FileHandle);
-    }
-    else
-    {
-        // TODO(casey): Logging
-    }
-
-    return(Result);
-}
-
-DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
-{
-    bool32 Result = false;
-    
-    HANDLE FileHandle = CreateFileA(Filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
-    if(FileHandle != INVALID_HANDLE_VALUE)
-    {
-        DWORD BytesWritten;
-        if(WriteFile(FileHandle, Memory, MemorySize, &BytesWritten, 0))
-        {
-            // NOTE(casey): File read successfully
-            Result = (BytesWritten == MemorySize);
-        }
-        else
-        {
-            // TODO(casey): Logging
-        }
-
-        CloseHandle(FileHandle);
-    }
-    else
-    {
-        // TODO(casey): Logging
-    }
-
-    return(Result);
-}
-
 inline FILETIME
 Win32GetLastWriteTime(char *Filename)
 {
@@ -183,9 +85,14 @@ Win32GetLastWriteTime(char *Filename)
 }
 
 LRESULT CALLBACK MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
+debug_read_file_result ReadFromFile(char *filename);
+bool32 ReadBuffersFromFiles(HWND Window);
+bool32 WriteBufferToFile(int editId, char *buffer, uint32 textLength);
 void SaveClipboardToBuffer(HWND Window, int editId);
 void CopyBufferToClipboard(HWND Window, int editId);
 void ClearAllBuffers(HWND Window);
+
+//Filename = "bufferpaste.txt";
 
 LRESULT CALLBACK
 MainWindowCallback(HWND Window,
@@ -194,6 +101,8 @@ MainWindowCallback(HWND Window,
         LPARAM LParam)
 {
     LRESULT Result = 0;
+    int startup = 1;
+
     switch(Message)
     {
         case WM_CREATE:
@@ -244,6 +153,13 @@ MainWindowCallback(HWND Window,
                 WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
                 250, 320, 120, 35,
                 Window, (HMENU)(UINT_PTR)ID_BUTTON_CLEAR_ALL, NULL, NULL);
+
+            // Read Buffers from Files
+            if(startup)
+            {
+                ReadBuffersFromFiles(Window);
+                startup = 0;
+            }
         } break;
 
         case WM_COMMAND:
@@ -310,6 +226,101 @@ MainWindowCallback(HWND Window,
     return(Result);
 }
 
+debug_read_file_result
+ReadFromFile(char *Filename)
+{
+    debug_read_file_result Result = {};
+    
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER FileSize;
+        if(GetFileSizeEx(FileHandle, &FileSize))
+        {
+            uint32 FileSize32 = SafeTruncateUInt64(FileSize.QuadPart);
+            Result.Contents = VirtualAlloc(0, FileSize32, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            if(Result.Contents)
+            {
+                DWORD BytesRead;
+                if(ReadFile(FileHandle, Result.Contents, FileSize32, &BytesRead, 0) &&
+                   (FileSize32 == BytesRead))
+                {
+                    // NOTE(casey): File read successfully
+                    Result.ContentsSize = FileSize32;
+                }
+                else
+                {                    
+                    // TODO(casey): Logging
+                    Result.Contents = 0;
+                }
+            }
+            else
+            {
+                // TODO(casey): Logging
+            }
+        }
+        else
+        {
+            // TODO(casey): Logging
+        }
+
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        // TODO(casey): Logging
+    }
+
+    return(Result);
+}
+
+bool32
+ReadBuffersFromFiles(HWND hwnd)
+{
+    char Filename[32];
+    debug_read_file_result Result = {};
+    for(int i = 0; i < 5; i++)
+    {
+        wsprintf(Filename, "bufferpaste-%d.txt", ID_EDIT1 + i);
+        Result = ReadFromFile(Filename);
+        SetWindowText(GetDlgItem(hwnd, ID_EDIT1 + i), (char*)Result.Contents);
+    }
+
+    return 1;
+}
+
+bool32
+WriteBufferToFile(int editId, char *buffer, uint32 textLength)
+{
+    bool32 Result = false;
+
+    char filename[32];
+    wsprintf(filename, "bufferpaste-%d.txt", editId);
+    
+    HANDLE FileHandle = CreateFileA(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten;
+        if(WriteFile(FileHandle, buffer, textLength, &BytesWritten, 0))
+        {
+            // NOTE(casey): File read successfully
+            Result = (BytesWritten == textLength);
+        }
+        else
+        {
+            // TODO(casey): Logging
+        }
+
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        // TODO(casey): Logging
+    }
+
+    return(Result);
+}
+
 void SaveClipboardToBuffer(HWND hwnd, int editId)
 {
     if (!OpenClipboard(hwnd)) {
@@ -334,6 +345,10 @@ void SaveClipboardToBuffer(HWND hwnd, int editId)
         char msg[100];
         wsprintf(msg, "Clipboard content saved to Buffer %d", editId - ID_EDIT1 + 1);
         SetWindowText(GetDlgItem(hwnd, ID_STATIC1), msg);
+
+        int textLength = GetWindowTextLengthA(GetDlgItem(hwnd, editId));
+        GetWindowTextA(GetDlgItem(hwnd, editId), pszText, textLength + 1);
+        WriteBufferToFile(editId, pszText, textLength + 1);
     }
     
     CloseClipboard();
@@ -407,7 +422,7 @@ WinMain(
     {
         HWND WindowHandle =
             CreateWindowExA(
-                    0,
+                    WS_EX_TOPMOST,
                     WindowClass.lpszClassName,
                     "BufferPaste",
                     WS_OVERLAPPEDWINDOW | WS_VISIBLE,
