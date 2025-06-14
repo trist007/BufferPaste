@@ -1,7 +1,5 @@
 #include <windows.h>
 
-#define internal static
-
 #define ID_EDIT1 1001
 #define ID_EDIT2 1002
 #define ID_EDIT3 1003
@@ -19,6 +17,170 @@
 #define ID_BUTTON_COPY5 1015
 #define ID_BUTTON_CLEAR_ALL 1016
 #define ID_STATIC1 1017
+
+#include <stdint.h>
+#include <stddef.h>
+    
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+typedef int32 bool32;
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
+typedef size_t memory_index;
+    
+typedef float real32;
+typedef double real64;
+
+#define internal static 
+#define local_persist static 
+#define global_variable static
+
+#define Kilobytes(Value) ((Value)*1024LL)
+#define Megabytes(Value) (Kilobytes(Value)*1024LL)
+#define Gigabytes(Value) (Megabytes(Value)*1024LL)
+#define Terabytes(Value) (Gigabytes(Value)*1024LL)
+
+#define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+
+#if DEBUG
+#define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+#else
+#define Assert(Expression)
+#endif
+
+typedef struct thread_context
+{
+    int Placeholder;
+} thread_context;
+
+typedef struct debug_read_file_result
+{
+    uint32 ContentsSize;
+    void *Contents;
+} debug_read_file_result;
+
+inline uint32
+SafeTruncateUInt64(uint64 Value)
+{
+    // TODO(casey): Defines for maximum values
+    Assert(Value <= 0xFFFFFFFF);
+    uint32 Result = (uint32)Value;
+    return(Result);
+}
+
+
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context *Thread, void *Memory)
+typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context *Thread, char *Filename)
+typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
+
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(thread_context *Thread, char *Filename, uint32 MemorySize, void *Memory)
+typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
+
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+{
+    if(Memory)
+    {
+        VirtualFree(Memory, 0, MEM_RELEASE);
+    }
+}
+
+DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
+{
+    debug_read_file_result Result = {};
+    
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER FileSize;
+        if(GetFileSizeEx(FileHandle, &FileSize))
+        {
+            uint32 FileSize32 = SafeTruncateUInt64(FileSize.QuadPart);
+            Result.Contents = VirtualAlloc(0, FileSize32, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            if(Result.Contents)
+            {
+                DWORD BytesRead;
+                if(ReadFile(FileHandle, Result.Contents, FileSize32, &BytesRead, 0) &&
+                   (FileSize32 == BytesRead))
+                {
+                    // NOTE(casey): File read successfully
+                    Result.ContentsSize = FileSize32;
+                }
+                else
+                {                    
+                    // TODO(casey): Logging
+                    DEBUGPlatformFreeFileMemory(Thread, Result.Contents);
+                    Result.Contents = 0;
+                }
+            }
+            else
+            {
+                // TODO(casey): Logging
+            }
+        }
+        else
+        {
+            // TODO(casey): Logging
+        }
+
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        // TODO(casey): Logging
+    }
+
+    return(Result);
+}
+
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
+{
+    bool32 Result = false;
+    
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten;
+        if(WriteFile(FileHandle, Memory, MemorySize, &BytesWritten, 0))
+        {
+            // NOTE(casey): File read successfully
+            Result = (BytesWritten == MemorySize);
+        }
+        else
+        {
+            // TODO(casey): Logging
+        }
+
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        // TODO(casey): Logging
+    }
+
+    return(Result);
+}
+
+inline FILETIME
+Win32GetLastWriteTime(char *Filename)
+{
+    FILETIME LastWriteTime = {};
+
+    WIN32_FILE_ATTRIBUTE_DATA Data;
+    if(GetFileAttributesEx(Filename, GetFileExInfoStandard, &Data))
+    {
+        LastWriteTime = Data.ftLastWriteTime;
+    }
+
+    return(LastWriteTime);
+}
 
 LRESULT CALLBACK MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
 void SaveClipboardToBuffer(HWND Window, int editId);
@@ -69,9 +231,9 @@ MainWindowCallback(HWND Window,
                     Window, (HMENU)(UINT_PTR)(ID_BUTTON_SAVE1 + i), NULL, NULL);
                 
                 // Copy button (copy this buffer to clipboard)
-                CreateWindow("BUTTON", "Copy",
+                CreateWindow("BUTTON", "Copy to Clipboard",
                     WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                    510, yPos, 60, 30,
+                    510, yPos, 150, 30,
                     Window, (HMENU)(UINT_PTR)(ID_BUTTON_COPY1 + i), NULL, NULL);
                 
                 yPos += rowHeight;
@@ -251,7 +413,7 @@ WinMain(
                     WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                     CW_USEDEFAULT,
                     CW_USEDEFAULT,
-                    650, 400,
+                    700, 400,
                     0,
                     0,
                     Instance,
