@@ -346,8 +346,8 @@ void SaveClipboardToBuffer(HWND hwnd, int editId)
         wsprintf(msg, "Clipboard content saved to Buffer %d", editId - ID_EDIT1 + 1);
         SetWindowText(GetDlgItem(hwnd, ID_STATIC1), msg);
 
-        int textLength = GetWindowTextLengthA(GetDlgItem(hwnd, editId));
-        GetWindowTextA(GetDlgItem(hwnd, editId), pszText, textLength + 1);
+        int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
+        GetWindowText(GetDlgItem(hwnd, editId), pszText, textLength + 1);
         WriteBufferToFile(editId, pszText, textLength + 1);
     }
     
@@ -357,7 +357,7 @@ void SaveClipboardToBuffer(HWND hwnd, int editId)
 void CopyBufferToClipboard(HWND hwnd, int editId)
 {
     // Get text from edit control
-    int textLength = GetWindowTextLength(GetDlgItem(hwnd, editId));
+    int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
     if (textLength == 0) {
         MessageBox(hwnd, "Buffer is empty!", "Info", MB_OK | MB_ICONINFORMATION);
         return;
