@@ -20,7 +20,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-    
+
 typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
@@ -33,7 +33,7 @@ typedef uint32_t uint32;
 typedef uint64_t uint64;
 
 typedef size_t memory_index;
-    
+
 typedef float real32;
 typedef double real64;
 
@@ -74,13 +74,13 @@ inline FILETIME
 Win32GetLastWriteTime(char *Filename)
 {
     FILETIME LastWriteTime = {};
-
+    
     WIN32_FILE_ATTRIBUTE_DATA Data;
     if(GetFileAttributesEx(Filename, GetFileExInfoStandard, &Data))
     {
         LastWriteTime = Data.ftLastWriteTime;
     }
-
+    
     return(LastWriteTime);
 }
 
@@ -89,6 +89,7 @@ debug_read_file_result ReadFromFile(char *filename);
 bool32 ReadBuffersFromFiles(HWND Window);
 bool32 WriteBufferToFile(int editId, char *buffer, uint32 textLength);
 void SaveClipboardToBuffer(HWND Window, int editId);
+void SaveClipboardToBufferUTF16(HWND Window, int editId);
 void CopyBufferToClipboard(HWND Window, int editId);
 void ClearAllBuffers(HWND Window);
 
@@ -96,22 +97,22 @@ void ClearAllBuffers(HWND Window);
 
 LRESULT CALLBACK
 MainWindowCallback(HWND Window,
-        UINT Message,
-        WPARAM WParam,
-        LPARAM LParam)
+                   UINT Message,
+                   WPARAM WParam,
+                   LPARAM LParam)
 {
     LRESULT Result = 0;
     int startup = 1;
-
+    
     switch(Message)
     {
         case WM_CREATE:
         {
             // Create title
             CreateWindow("STATIC", "BufferPaste - Save clipboard content to buffers, then copy back when needed",
-                WS_VISIBLE | WS_CHILD,
-                10, 10, 600, 20,
-                Window, (HMENU)(UINT_PTR)ID_STATIC1, NULL, NULL);
+                         WS_VISIBLE | WS_CHILD,
+                         10, 10, 600, 20,
+                         Window, (HMENU)(UINT_PTR)ID_STATIC1, NULL, NULL);
             
             // Create 5 buffer rows
             int yPos = 50;
@@ -123,37 +124,37 @@ MainWindowCallback(HWND Window,
                 
                 // Label
                 CreateWindow("STATIC", label,
-                    WS_VISIBLE | WS_CHILD,
-                    10, yPos + 5, 60, 20,
-                    Window, NULL, NULL, NULL);
+                             WS_VISIBLE | WS_CHILD,
+                             10, yPos + 5, 60, 20,
+                             Window, NULL, NULL, NULL);
                 
                 // Text field (larger, multiline)
                 CreateWindow("EDIT", "",
-                    WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL | ES_MULTILINE | WS_VSCROLL,
-                    80, yPos, 350, 35,
-                    Window, (HMENU)(UINT_PTR)(ID_EDIT1 + i), NULL, NULL);
+                             WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL | ES_MULTILINE | WS_VSCROLL,
+                             80, yPos, 350, 35,
+                             Window, (HMENU)(UINT_PTR)(ID_EDIT1 + i), NULL, NULL);
                 
                 // Save button (save clipboard to this buffer)
                 CreateWindow("BUTTON", "Save",
-                    WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                    440, yPos, 60, 30,
-                    Window, (HMENU)(UINT_PTR)(ID_BUTTON_SAVE1 + i), NULL, NULL);
+                             WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                             440, yPos, 60, 30,
+                             Window, (HMENU)(UINT_PTR)(ID_BUTTON_SAVE1 + i), NULL, NULL);
                 
                 // Copy button (copy this buffer to clipboard)
                 CreateWindow("BUTTON", "Copy to Clipboard",
-                    WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                    510, yPos, 150, 30,
-                    Window, (HMENU)(UINT_PTR)(ID_BUTTON_COPY1 + i), NULL, NULL);
+                             WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                             510, yPos, 150, 30,
+                             Window, (HMENU)(UINT_PTR)(ID_BUTTON_COPY1 + i), NULL, NULL);
                 
                 yPos += rowHeight;
             }
             
             // Clear All button
             CreateWindow("BUTTON", "Clear All Buffers",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                250, 320, 120, 35,
-                Window, (HMENU)(UINT_PTR)ID_BUTTON_CLEAR_ALL, NULL, NULL);
-
+                         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                         250, 320, 120, 35,
+                         Window, (HMENU)(UINT_PTR)ID_BUTTON_CLEAR_ALL, NULL, NULL);
+            
             // Read Buffers from Files
             if(startup)
             {
@@ -161,68 +162,68 @@ MainWindowCallback(HWND Window,
                 startup = 0;
             }
         } break;
-
+        
         case WM_COMMAND:
         {
             int wmId = LOWORD(WParam);
-
+            
             // Handle Save buttons (save clipboard to buffer)
             if(wmId >= ID_BUTTON_SAVE1 && wmId <= ID_BUTTON_SAVE5)
             {
                 int bufferIndex = wmId - ID_BUTTON_SAVE1;
-                SaveClipboardToBuffer(Window, ID_EDIT1 + bufferIndex);
+                SaveClipboardToBufferUTF16(Window, ID_EDIT1 + bufferIndex);
             }
-
+            
             // Handle Copy buttons (copy buffer to clipboard)
             else if(wmId >= ID_BUTTON_COPY1 && wmId <= ID_BUTTON_COPY5)
             {
                 int bufferIndex = wmId - ID_BUTTON_COPY1;
                 CopyBufferToClipboard(Window, ID_EDIT1 +  bufferIndex);
             }
-
+            
             // Handle Clear All button
             else if(wmId == ID_BUTTON_CLEAR_ALL)
             {
                 ClearAllBuffers(Window);
             }
         } break;
-
+        
         case WM_SIZE:
         {
             OutputDebugStringA("WM_SIZE\n");
         } break;
-
+        
         case WM_CLOSE:
         {
             DestroyWindow(Window);   
             return 0;
         }
-
+        
         case WM_PAINT:
         {
             PAINTSTRUCT Paint;
             HDC DeviceContext = BeginPaint(Window, &Paint);
             EndPaint(Window, &Paint);
         } break;
-
+        
         case WM_DESTROY:
         {
-          PostQuitMessage(0);  
-          return 0;
+            PostQuitMessage(0);  
+            return 0;
         }
-
+        
         case WM_ACTIVATEAPP:
         {
             OutputDebugStringA("WM_ACTIVATEAPP\n");
         } break;
-
+        
         default:
         {
             // OutputDebugStringA("default\n");
             Result = DefWindowProc(Window, Message, WParam, LParam);
         } break;
     }
-
+    
     return(Result);
 }
 
@@ -263,14 +264,14 @@ ReadFromFile(char *Filename)
         {
             // TODO(casey): Logging
         }
-
+        
         CloseHandle(FileHandle);
     }
     else
     {
         // TODO(casey): Logging
     }
-
+    
     return(Result);
 }
 
@@ -285,7 +286,7 @@ ReadBuffersFromFiles(HWND hwnd)
         Result = ReadFromFile(Filename);
         SetWindowText(GetDlgItem(hwnd, ID_EDIT1 + i), (char*)Result.Contents);
     }
-
+    
     return 1;
 }
 
@@ -293,7 +294,7 @@ bool32
 WriteBufferToFile(int editId, char *buffer, uint32 textLength)
 {
     bool32 Result = false;
-
+    
     char filename[32];
     wsprintf(filename, "bufferpaste-%d.txt", editId);
     
@@ -310,16 +311,86 @@ WriteBufferToFile(int editId, char *buffer, uint32 textLength)
         {
             // TODO(casey): Logging
         }
-
+        
         CloseHandle(FileHandle);
     }
     else
     {
         // TODO(casey): Logging
     }
-
+    
     return(Result);
 }
+
+bool32
+WriteBufferToFileUTF16(int editId, WCHAR *buffer, uint32 textLength)
+{
+    bool32 Result = false;
+    
+    WCHAR filename[32];
+    wsprintfW(filename, L"bufferpaste-%d.txt", editId);
+    
+    HANDLE FileHandle = CreateFileW(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten;
+        DWORD BytesToWrite = textLength * sizeof(WCHAR);
+        
+        if(WriteFile(FileHandle, buffer, BytesToWrite, &BytesWritten, 0))
+        {
+            // NOTE(casey): File read successfully
+            Result = (BytesWritten == BytesToWrite);
+        }
+        else
+        {
+            // TODO(casey): Logging
+        }
+        
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        // TODO(casey): Logging
+    }
+    
+    return(Result);
+}
+
+
+void
+SaveClipboardToBufferUTF16(HWND hwnd, int editId)
+{
+    if (!OpenClipboard(hwnd)) {
+        MessageBox(hwnd, "Cannot open clipboard!", "Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    HANDLE hData = GetClipboardData(CF_UNICODETEXT);
+    if (hData == NULL) {
+        CloseClipboard();
+        MessageBox(hwnd, "No text data in clipboard!", "Info", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+    
+    WCHAR* pszText = (WCHAR *)GlobalLock(hData);
+    if (pszText != NULL) {
+        // Set the text in the edit control
+        SetWindowTextW(GetDlgItem(hwnd, editId), pszText);
+        GlobalUnlock(hData);
+        
+        // Show confirmation
+        WCHAR msg[100];
+        wsprintfW(msg, L"Clipboard content saved to Buffer %d", editId - ID_EDIT1 + 1);
+        SetWindowTextW(GetDlgItem(hwnd, ID_STATIC1), msg);
+        
+        int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
+        GetWindowTextW(GetDlgItem(hwnd, editId), pszText, textLength + 1);
+        WriteBufferToFileUTF16(editId, pszText, textLength + 1);
+    }
+    
+    CloseClipboard();
+}
+
 
 void SaveClipboardToBuffer(HWND hwnd, int editId)
 {
@@ -345,7 +416,7 @@ void SaveClipboardToBuffer(HWND hwnd, int editId)
         char msg[100];
         wsprintf(msg, "Clipboard content saved to Buffer %d", editId - ID_EDIT1 + 1);
         SetWindowText(GetDlgItem(hwnd, ID_STATIC1), msg);
-
+        
         int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
         GetWindowText(GetDlgItem(hwnd, editId), pszText, textLength + 1);
         WriteBufferToFile(editId, pszText, textLength + 1);
@@ -402,14 +473,14 @@ void ClearAllBuffers(HWND hwnd)
 
 int CALLBACK
 WinMain(
-    HINSTANCE Instance,
-    HINSTANCE PrevInstance,
-    LPSTR CommandLine,
-    int ShowCode)
+        HINSTANCE Instance,
+        HINSTANCE PrevInstance,
+        LPSTR CommandLine,
+        int ShowCode)
 {
     WNDCLASS WindowClass = {};
     // TODO(trist007): Check if HREDRAW/VREDRAW/OWNDC still matter
-
+    
     WindowClass.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = MainWindowCallback;
     WindowClass.hInstance = Instance;
@@ -417,27 +488,27 @@ WinMain(
     WindowClass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     WindowClass.lpszClassName = "BufferPaste";
-
+    
     if(RegisterClass(&WindowClass))
     {
         HWND WindowHandle =
             CreateWindowExA(
-                    WS_EX_TOPMOST,
-                    WindowClass.lpszClassName,
-                    "BufferPaste",
-                    WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                    CW_USEDEFAULT,
-                    CW_USEDEFAULT,
-                    700, 400,
-                    0,
-                    0,
-                    Instance,
-                    0);
-
+                            WS_EX_TOPMOST,
+                            WindowClass.lpszClassName,
+                            "BufferPaste",
+                            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                            CW_USEDEFAULT,
+                            CW_USEDEFAULT,
+                            700, 400,
+                            0,
+                            0,
+                            Instance,
+                            0);
+        
         ShowWindow(WindowHandle, ShowCode);
         UpdateWindow(WindowHandle);
-
-
+        
+        
         if(WindowHandle)
         {
             MSG Message;
@@ -464,6 +535,7 @@ WinMain(
     {
         // TODO(trist007): Logging
     }
-
+    
     return(0);
 }
+
