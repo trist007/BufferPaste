@@ -85,10 +85,9 @@ Win32GetLastWriteTime(char *Filename)
 }
 
 LRESULT CALLBACK MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
-debug_read_file_result ReadFromFile(char *filename);
+debug_read_file_result ReadFromFile(WCHAR *filename);
 bool32 ReadBuffersFromFiles(HWND Window);
-bool32 WriteBufferToFile(int editId, char *buffer, uint32 textLength);
-void SaveClipboardToBuffer(HWND Window, int editId);
+bool32 WriteBufferToFileUTF16(int editId, char *buffer, uint32 textLength);
 void SaveClipboardToBufferUTF16(HWND Window, int editId);
 void CopyBufferToClipboard(HWND Window, int editId);
 void ClearAllBuffers(HWND Window);
@@ -228,11 +227,11 @@ MainWindowCallback(HWND Window,
 }
 
 debug_read_file_result
-ReadFromFile(char *Filename)
+ReadFromFile(WCHAR *Filename)
 {
     debug_read_file_result Result = {};
     
-    HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    HANDLE FileHandle = CreateFileW(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
         LARGE_INTEGER FileSize;
@@ -278,48 +277,16 @@ ReadFromFile(char *Filename)
 bool32
 ReadBuffersFromFiles(HWND hwnd)
 {
-    char Filename[32];
+    WCHAR Filename[32];
     debug_read_file_result Result = {};
     for(int i = 0; i < 5; i++)
     {
-        wsprintf(Filename, "bufferpaste-%d.txt", ID_EDIT1 + i);
+        wsprintfW(Filename, L"bufferpaste-%d.txt", ID_EDIT1 + i);
         Result = ReadFromFile(Filename);
-        SetWindowText(GetDlgItem(hwnd, ID_EDIT1 + i), (char*)Result.Contents);
+        SetWindowTextW(GetDlgItem(hwnd, ID_EDIT1 + i), (WCHAR*)Result.Contents);
     }
     
     return 1;
-}
-
-bool32
-WriteBufferToFile(int editId, char *buffer, uint32 textLength)
-{
-    bool32 Result = false;
-    
-    char filename[32];
-    wsprintf(filename, "bufferpaste-%d.txt", editId);
-    
-    HANDLE FileHandle = CreateFileA(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
-    if(FileHandle != INVALID_HANDLE_VALUE)
-    {
-        DWORD BytesWritten;
-        if(WriteFile(FileHandle, buffer, textLength, &BytesWritten, 0))
-        {
-            // NOTE(casey): File read successfully
-            Result = (BytesWritten == textLength);
-        }
-        else
-        {
-            // TODO(casey): Logging
-        }
-        
-        CloseHandle(FileHandle);
-    }
-    else
-    {
-        // TODO(casey): Logging
-    }
-    
-    return(Result);
 }
 
 bool32
@@ -361,14 +328,14 @@ void
 SaveClipboardToBufferUTF16(HWND hwnd, int editId)
 {
     if (!OpenClipboard(hwnd)) {
-        MessageBox(hwnd, "Cannot open clipboard!", "Error", MB_OK | MB_ICONERROR);
+        MessageBoxW(hwnd, L"Cannot open clipboard!", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
     
     HANDLE hData = GetClipboardData(CF_UNICODETEXT);
     if (hData == NULL) {
         CloseClipboard();
-        MessageBox(hwnd, "No text data in clipboard!", "Info", MB_OK | MB_ICONINFORMATION);
+        MessageBoxW(hwnd, L"No text data in clipboard!", L"Info", MB_OK | MB_ICONINFORMATION);
         return;
     }
     
@@ -384,86 +351,55 @@ SaveClipboardToBufferUTF16(HWND hwnd, int editId)
         SetWindowTextW(GetDlgItem(hwnd, ID_STATIC1), msg);
         
         int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
-        GetWindowTextW(GetDlgItem(hwnd, editId), pszText, textLength + 1);
-        WriteBufferToFileUTF16(editId, pszText, textLength + 1);
+        void* fileBuffer = VirtualAlloc(0, ((textLength + 1) * sizeof(WCHAR)), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+        GetWindowTextW(GetDlgItem(hwnd, editId), (WCHAR *)fileBuffer, textLength + 1);
+        WriteBufferToFileUTF16(editId, (WCHAR *)fileBuffer, textLength + 1);
     }
     
     CloseClipboard();
 }
 
-
-void SaveClipboardToBuffer(HWND hwnd, int editId)
-{
-    if (!OpenClipboard(hwnd)) {
-        MessageBox(hwnd, "Cannot open clipboard!", "Error", MB_OK | MB_ICONERROR);
-        return;
-    }
-    
-    HANDLE hData = GetClipboardData(CF_TEXT);
-    if (hData == NULL) {
-        CloseClipboard();
-        MessageBox(hwnd, "No text data in clipboard!", "Info", MB_OK | MB_ICONINFORMATION);
-        return;
-    }
-    
-    char* pszText = (char*)GlobalLock(hData);
-    if (pszText != NULL) {
-        // Set the text in the edit control
-        SetWindowText(GetDlgItem(hwnd, editId), pszText);
-        GlobalUnlock(hData);
-        
-        // Show confirmation
-        char msg[100];
-        wsprintf(msg, "Clipboard content saved to Buffer %d", editId - ID_EDIT1 + 1);
-        SetWindowText(GetDlgItem(hwnd, ID_STATIC1), msg);
-        
-        int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
-        GetWindowText(GetDlgItem(hwnd, editId), pszText, textLength + 1);
-        WriteBufferToFile(editId, pszText, textLength + 1);
-    }
-    
-    CloseClipboard();
-}
-
-void CopyBufferToClipboard(HWND hwnd, int editId)
+void
+CopyBufferToClipboard(HWND hwnd, int editId)
 {
     // Get text from edit control
     int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
     if (textLength == 0) {
-        MessageBox(hwnd, "Buffer is empty!", "Info", MB_OK | MB_ICONINFORMATION);
+        MessageBoxW(hwnd, L"Buffer is empty!", L"Info", MB_OK | MB_ICONINFORMATION);
         return;
     }
     
-    char* buffer = (char*)malloc(textLength + 1);
-    GetWindowText(GetDlgItem(hwnd, editId), buffer, textLength + 1);
+    void* buffer = VirtualAlloc(0, ((textLength + 1) * sizeof(WCHAR)), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    GetWindowTextW(GetDlgItem(hwnd, editId), (WCHAR *)buffer, textLength + 1);
     
     if (!OpenClipboard(hwnd)) {
-        free(buffer);
-        MessageBox(hwnd, "Cannot open clipboard!", "Error", MB_OK | MB_ICONERROR);
+        MessageBoxW(hwnd, L"Cannot open clipboard!", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
     
     EmptyClipboard();
     
-    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, textLength + 1);
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (textLength + 1) * sizeof(WCHAR));
     if (hMem != NULL) {
-        char* pMem = (char*)GlobalLock(hMem);
-        strcpy_s(pMem, textLength + 1, buffer);
+        WCHAR* pMem = (WCHAR*)GlobalLock(hMem);
+        int actualLength = GetWindowTextW(GetDlgItem(hwnd, editId), pMem, textLength + 1);
+        pMem[actualLength] = L'\0';
+        //wcscpy_s(pMem, textLength + 1, (WCHAR *)buffer);
         GlobalUnlock(hMem);
         
-        SetClipboardData(CF_TEXT, hMem);
+        SetClipboardData(CF_UNICODETEXT, hMem);
         
         // Show confirmation
-        char msg[100];
-        wsprintf(msg, "Buffer %d copied to clipboard", editId - ID_EDIT1 + 1);
-        SetWindowText(GetDlgItem(hwnd, ID_STATIC1), msg);
+        WCHAR msg[100];
+        wsprintfW(msg, L"Buffer %d copied to clipboard", editId - ID_EDIT1 + 1);
+        SetWindowTextW(GetDlgItem(hwnd, ID_STATIC1), msg);
     }
     
     CloseClipboard();
-    free(buffer);
 }
 
-void ClearAllBuffers(HWND hwnd)
+void
+ClearAllBuffers(HWND hwnd)
 {
     for (int i = 0; i < 5; i++) {
         SetWindowText(GetDlgItem(hwnd, ID_EDIT1 + i), "");
@@ -492,18 +428,18 @@ WinMain(
     if(RegisterClass(&WindowClass))
     {
         HWND WindowHandle =
-            CreateWindowExA(
-                            WS_EX_TOPMOST,
-                            WindowClass.lpszClassName,
-                            "BufferPaste",
-                            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                            CW_USEDEFAULT,
-                            CW_USEDEFAULT,
-                            700, 400,
-                            0,
-                            0,
-                            Instance,
-                            0);
+            CreateWindowEx(
+                           WS_EX_TOPMOST,
+                           WindowClass.lpszClassName,
+                           TEXT("BufferPaste"),
+                           WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                           CW_USEDEFAULT,
+                           CW_USEDEFAULT,
+                           700, 400,
+                           0,
+                           0,
+                           Instance,
+                           0);
         
         ShowWindow(WindowHandle, ShowCode);
         UpdateWindow(WindowHandle);
@@ -538,4 +474,3 @@ WinMain(
     
     return(0);
 }
-
