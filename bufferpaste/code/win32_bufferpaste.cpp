@@ -16,6 +16,7 @@
 #define ID_BUTTON_COPY4 1014
 #define ID_BUTTON_COPY5 1015
 #define ID_BUTTON_CLEAR_ALL 1016
+#define ID_CHECKBOX_ALWAYS_ON_TOP 1018
 #define ID_STATIC1 1017
 
 #include <stdint.h>
@@ -154,10 +155,17 @@ MainWindowCallback(HWND Window,
                          250, 320, 120, 35,
                          Window, (HMENU)(UINT_PTR)ID_BUTTON_CLEAR_ALL, NULL, NULL);
             
+            // Always on Top checkbox
+            CreateWindow("BUTTON", "Always on Top",
+                         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+                         400, 320, 120, 35,
+                         Window, (HMENU)(UINT_PTR)ID_CHECKBOX_ALWAYS_ON_TOP, NULL, NULL);
+            
             // Read Buffers from Files
             if(startup)
             {
                 ReadBuffersFromFiles(Window);
+                SendMessage(GetDlgItem(Window, ID_CHECKBOX_ALWAYS_ON_TOP), BM_SETCHECK, BST_CHECKED, 0);
                 startup = 0;
             }
         } break;
@@ -165,6 +173,7 @@ MainWindowCallback(HWND Window,
         case WM_COMMAND:
         {
             int wmId = LOWORD(WParam);
+            int wmHiId = HIWORD(WParam);
             
             // Handle Save buttons (save clipboard to buffer)
             if(wmId >= ID_BUTTON_SAVE1 && wmId <= ID_BUTTON_SAVE5)
@@ -185,6 +194,25 @@ MainWindowCallback(HWND Window,
             {
                 ClearAllBuffers(Window);
             }
+            
+            // Handle Always On Top
+            else if( wmId == ID_CHECKBOX_ALWAYS_ON_TOP && wmHiId == BN_CLICKED )
+            {
+                // Get checkbox state
+                BOOL isChecked = (BOOL)SendMessage(GetDlgItem(Window, ID_CHECKBOX_ALWAYS_ON_TOP), BM_GETCHECK, 0, 0);
+                
+                if (isChecked)
+                {
+                    SetWindowPos(Window, HWND_TOPMOST, 0, 0, 0, 0,
+                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                }
+                else
+                {
+                    SetWindowPos(Window, HWND_NOTOPMOST, 0, 0, 0, 0,
+                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                }
+            }
+            
         } break;
         
         case WM_SIZE:
