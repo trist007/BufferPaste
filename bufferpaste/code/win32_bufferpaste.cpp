@@ -1,23 +1,41 @@
 #include <windows.h>
 
-#define ID_EDIT1 1001
-#define ID_EDIT2 1002
-#define ID_EDIT3 1003
-#define ID_EDIT4 1004
-#define ID_EDIT5 1005
-#define ID_BUTTON_SAVE1 1006
-#define ID_BUTTON_SAVE2 1007
-#define ID_BUTTON_SAVE3 1008
-#define ID_BUTTON_SAVE4 1009
-#define ID_BUTTON_SAVE5 1010
-#define ID_BUTTON_COPY1 1011
-#define ID_BUTTON_COPY2 1012
-#define ID_BUTTON_COPY3 1013
-#define ID_BUTTON_COPY4 1014
-#define ID_BUTTON_COPY5 1015
-#define ID_BUTTON_CLEAR_ALL 1016
-#define ID_CHECKBOX_ALWAYS_ON_TOP 1018
-#define ID_STATIC1 1017
+enum ButtonIDs {
+    ID_EDIT1 = 1001,
+    ID_EDIT2,
+    ID_EDIT3,
+    ID_EDIT4,
+    ID_EDIT5,
+    ID_EDIT6,
+    ID_EDIT7,
+    ID_EDIT8,
+    ID_EDIT9,
+    ID_EDIT10,
+    ID_BUTTON_SAVE1,
+    ID_BUTTON_SAVE2,
+    ID_BUTTON_SAVE3,
+    ID_BUTTON_SAVE4,
+    ID_BUTTON_SAVE5,
+    ID_BUTTON_SAVE6,
+    ID_BUTTON_SAVE7,
+    ID_BUTTON_SAVE8,
+    ID_BUTTON_SAVE9,
+    ID_BUTTON_SAVE10,
+    ID_BUTTON_COPY1,
+    ID_BUTTON_COPY2,
+    ID_BUTTON_COPY3,
+    ID_BUTTON_COPY4,
+    ID_BUTTON_COPY5,
+    ID_BUTTON_COPY6,
+    ID_BUTTON_COPY7,
+    ID_BUTTON_COPY8,
+    ID_BUTTON_COPY9,
+    ID_BUTTON_COPY10,
+    ID_BUTTON_CLEAR_ALL,
+    ID_STATIC1,
+    ID_CHECKBOX_ALWAYS_ON_TOP,
+    ID_DOUBLE_THE_BUFFERS
+};
 
 #include <stdint.h>
 #include <stddef.h>
@@ -55,6 +73,8 @@ typedef double real64;
 #define Assert(Expression)
 #endif
 
+int g_NumOfBuffers = 10;
+
 typedef struct debug_read_file_result
 {
     uint32 ContentsSize;
@@ -88,11 +108,12 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LP
 debug_read_file_result ReadFromFile(WCHAR *filename);
 bool32 ReadBuffersFromFiles(HWND Window);
 bool32 WriteBufferToFileUTF16(int editId, char *buffer, uint32 textLength);
+bool32 DeleteBufferFiles();
 void SaveClipboardToBufferUTF16(HWND Window, int editId);
 void CopyBufferToClipboard(HWND Window, int editId);
 void ClearAllBuffers(HWND Window);
 
-//Filename = "bufferpaste.txt";
+//Filename = "bufferpaste-%d.txt";
 
 LRESULT CALLBACK
 MainWindowCallback(HWND Window,
@@ -113,18 +134,19 @@ MainWindowCallback(HWND Window,
                          10, 10, 600, 20,
                          Window, (HMENU)(UINT_PTR)ID_STATIC1, NULL, NULL);
             
-            // Create 5 buffer rows
-            int yPos = 50;
+            // Create g_NumOfBuffers buffer rows
+            
+            int yPos = g_NumOfBuffers * 4;
             int rowHeight = 50;
             
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < g_NumOfBuffers; i++) {
                 char label[20];
                 wsprintf(label, "Buffer %d:", i + 1);
                 
                 // Label
                 CreateWindow("STATIC", label,
                              WS_VISIBLE | WS_CHILD,
-                             10, yPos + 5, 60, 20,
+                             10, yPos + 5, 65, 20,
                              Window, NULL, NULL, NULL);
                 
                 // Text field (larger, multiline)
@@ -151,16 +173,14 @@ MainWindowCallback(HWND Window,
             // Clear All button
             CreateWindow("BUTTON", "Clear All Buffers",
                          WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                         250, 320, 120, 35,
+                         250, (g_NumOfBuffers * 54), 120, 35,
                          Window, (HMENU)(UINT_PTR)ID_BUTTON_CLEAR_ALL, NULL, NULL);
             
             // Always on Top checkbox
             CreateWindow("BUTTON", "Always on Top",
                          WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
-                         400, 320, 120, 35,
+                         400, (g_NumOfBuffers * 54), 120, 35,
                          Window, (HMENU)(UINT_PTR)ID_CHECKBOX_ALWAYS_ON_TOP, NULL, NULL);
-            
-            // NOTE(trist007): need to add another checkbox for doubling the buffers
             
             // Read Buffers from Files
             if(startup)
@@ -177,14 +197,14 @@ MainWindowCallback(HWND Window,
             int wmHiId = HIWORD(WParam);
             
             // Handle Save buttons (save clipboard to buffer)
-            if(wmId >= ID_BUTTON_SAVE1 && wmId <= ID_BUTTON_SAVE5)
+            if(wmId >= ID_BUTTON_SAVE1 && wmId <= ID_BUTTON_SAVE10)
             {
                 int bufferIndex = wmId - ID_BUTTON_SAVE1;
                 SaveClipboardToBufferUTF16(Window, ID_EDIT1 + bufferIndex);
             }
             
             // Handle Copy buttons (copy buffer to clipboard)
-            else if(wmId >= ID_BUTTON_COPY1 && wmId <= ID_BUTTON_COPY5)
+            else if(wmId >= ID_BUTTON_COPY1 && wmId <= ID_BUTTON_COPY10)
             {
                 int bufferIndex = wmId - ID_BUTTON_COPY1;
                 CopyBufferToClipboard(Window, ID_EDIT1 +  bufferIndex);
@@ -194,7 +214,7 @@ MainWindowCallback(HWND Window,
             else if(wmId == ID_BUTTON_CLEAR_ALL)
             {
                 ClearAllBuffers(Window);
-                // TODO(trist007): clear all also needs to delete the files
+                DeleteBufferFiles();
             }
             
             // Handle Always On Top
@@ -214,7 +234,6 @@ MainWindowCallback(HWND Window,
                                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                 }
             }
-            
         } break;
         
         case WM_SIZE:
@@ -300,11 +319,27 @@ ReadFromFile(WCHAR *Filename)
 }
 
 bool32
+DeleteBufferFiles()
+{
+    bool32 Result = false;
+    WCHAR Filename[32];
+    
+    for(int i = 0; i < g_NumOfBuffers; i++)
+    {
+        wsprintfW(Filename, L"bufferpaste-%d.txt", ID_EDIT1 + i);
+        DeleteFileW(Filename);
+    }
+    
+    return(Result);
+    
+}
+
+bool32
 ReadBuffersFromFiles(HWND hwnd)
 {
     WCHAR Filename[32];
     debug_read_file_result Result = {};
-    for(int i = 0; i < 5; i++)
+    for(int i = 0; i < g_NumOfBuffers; i++)
     {
         wsprintfW(Filename, L"bufferpaste-%d.txt", ID_EDIT1 + i);
         Result = ReadFromFile(Filename);
@@ -423,7 +458,7 @@ CopyBufferToClipboard(HWND hwnd, int editId)
 void
 ClearAllBuffers(HWND hwnd)
 {
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < g_NumOfBuffers; i++) {
         SetWindowText(GetDlgItem(hwnd, ID_EDIT1 + i), "");
     }
     SetWindowText(GetDlgItem(hwnd, ID_STATIC1), "All buffers cleared");
@@ -457,7 +492,7 @@ WinMain(
                            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                            CW_USEDEFAULT,
                            CW_USEDEFAULT,
-                           700, 400,
+                           700, 625,
                            0,
                            0,
                            Instance,
