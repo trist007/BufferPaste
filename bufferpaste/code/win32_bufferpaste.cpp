@@ -64,7 +64,6 @@ typedef struct debug_read_file_result
 inline uint32
 SafeTruncateUInt64(uint64 Value)
 {
-    // TODO(casey): Defines for maximum values
     Assert(Value <= 0xFFFFFFFF);
     uint32 Result = (uint32)Value;
     return(Result);
@@ -161,6 +160,8 @@ MainWindowCallback(HWND Window,
                          400, 320, 120, 35,
                          Window, (HMENU)(UINT_PTR)ID_CHECKBOX_ALWAYS_ON_TOP, NULL, NULL);
             
+            // NOTE(trist007): need to add another checkbox for doubling the buffers
+            
             // Read Buffers from Files
             if(startup)
             {
@@ -193,6 +194,7 @@ MainWindowCallback(HWND Window,
             else if(wmId == ID_BUTTON_CLEAR_ALL)
             {
                 ClearAllBuffers(Window);
+                // TODO(trist007): clear all also needs to delete the files
             }
             
             // Handle Always On Top
@@ -273,30 +275,25 @@ ReadFromFile(WCHAR *Filename)
                 if(ReadFile(FileHandle, Result.Contents, FileSize32, &BytesRead, 0) &&
                    (FileSize32 == BytesRead))
                 {
-                    // NOTE(casey): File read successfully
                     Result.ContentsSize = FileSize32;
                 }
                 else
                 {                    
-                    // TODO(casey): Logging
                     Result.Contents = 0;
                 }
             }
             else
             {
-                // TODO(casey): Logging
             }
         }
         else
         {
-            // TODO(casey): Logging
         }
         
         CloseHandle(FileHandle);
     }
     else
     {
-        // TODO(casey): Logging
     }
     
     return(Result);
@@ -333,19 +330,16 @@ WriteBufferToFileUTF16(int editId, WCHAR *buffer, uint32 textLength)
         
         if(WriteFile(FileHandle, buffer, BytesToWrite, &BytesWritten, 0))
         {
-            // NOTE(casey): File read successfully
             Result = (BytesWritten == BytesToWrite);
         }
         else
         {
-            // TODO(casey): Logging
         }
         
         CloseHandle(FileHandle);
     }
     else
     {
-        // TODO(casey): Logging
     }
     
     return(Result);
