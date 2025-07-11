@@ -8,10 +8,12 @@ REM TODO - can we just build both with one exe?
 IF NOT EXIST ..\..\build mkdir ..\..\build
 pushd ..\..\build
 
+rc ..\bufferpaste\code\resource.rc
+
 REM 32-bit build
 REM cl %CommonCompilerFlags% ..\handmade\code\win32_handmade.cpp /link -subsystem:windows,5.1 %CommonLinkerFlags%
 
 REM 64-bit build
 REM del *.pdb > NUL 2> NUL
-cl %CommonCompilerFlags% ..\bufferpaste\code\win32_bufferpaste.cpp /link %CommonLinkerFlags%
+cl %CommonCompilerFlags% ..\bufferpaste\code\win32_bufferpaste.cpp /link %CommonLinkerFlags% ..\bufferpaste\code\resource.res
 popd

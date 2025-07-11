@@ -1,0 +1,4 @@
+// resource.rc
+#define IDI_MYICON 101
+IDI_MYICON ICON "myicon.ico"
+1 ICON "myicon.ico"

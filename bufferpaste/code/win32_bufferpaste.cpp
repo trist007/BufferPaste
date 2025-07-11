@@ -1,4 +1,5 @@
 #include <windows.h>
+#include "resource.h"
 
 enum ButtonIDs {
     ID_EDIT1 = 1001,
@@ -477,7 +478,7 @@ WinMain(
     WindowClass.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = MainWindowCallback;
     WindowClass.hInstance = Instance;
-    //WindowClass.hIcon;
+    WindowClass.hIcon = LoadIcon(Instance, MAKEINTRESOURCE(IDI_MYICON));
     WindowClass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     WindowClass.lpszClassName = "BufferPaste";
