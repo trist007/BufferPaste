@@ -301,7 +301,7 @@ ReadFromFile(WCHAR *Filename)
                 }
                 else
                 {                    
-                    Result.Contents = 0;
+                    VirtualFree(Result.Contents, 0, MEM_RELEASE);
                 }
             }
             else
@@ -324,13 +324,17 @@ ReadFromFile(WCHAR *Filename)
 bool32
 DeleteBufferFiles()
 {
-    bool32 Result = false;
+    bool32 Result = true;
     WCHAR Filename[32];
     
     for(int i = 0; i < g_NumOfBuffers; i++)
     {
         _snwprintf_s(Filename, ArrayCount(Filename), _TRUNCATE, L"bufferpaste-%d.txt", ID_EDIT1 + i);
-        DeleteFileW(Filename);
+        
+        if(!DeleteFileW(Filename))
+        {
+            Result = false;
+        }
     }
     
     return(Result);
@@ -418,7 +422,8 @@ SaveClipboardToBufferUTF16(HWND hwnd, int editId)
         int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
         void* fileBuffer = VirtualAlloc(0, ((textLength + 1) * sizeof(WCHAR)), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
         GetWindowTextW(GetDlgItem(hwnd, editId), (WCHAR *)fileBuffer, textLength + 1);
-        WriteBufferToFileUTF16(editId, (WCHAR *)fileBuffer, textLength + 1);
+        //WriteBufferToFileUTF16(editId, (WCHAR *)fileBuffer, textLength + 1);
+        WriteBufferToFileUTF16(editId, (WCHAR *)fileBuffer, textLength);
         VirtualFree(fileBuffer, 0, MEM_RELEASE);
     }
     
