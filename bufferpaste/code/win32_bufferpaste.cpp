@@ -111,9 +111,9 @@ debug_read_file_result ReadFromFile(WCHAR *filename);
 bool32 ReadBuffersFromFiles(HWND Window);
 bool32 WriteBufferToFileUTF16(int editId, WCHAR *buffer, uint32 textLength);
 bool32 DeleteBufferFiles();
-void SaveClipboardToBufferUTF16(HWND Window, int editId);
-void CopyBufferToClipboard(HWND Window, int editId);
-void ClearAllBuffers(HWND Window);
+bool32 SaveClipboardToBufferUTF16(HWND Window, int editId);
+bool32 CopyBufferToClipboard(HWND Window, int editId);
+bool32 ClearAllBuffers(HWND Window);
 
 //Filename = "bufferpaste-%d.txt";
 
@@ -126,7 +126,6 @@ MainWindowCallback(HWND Window,
                    LPARAM LParam)
 {
     LRESULT Result = 0;
-    //int startup = 1;
     
     switch(Message)
     {
@@ -189,7 +188,12 @@ MainWindowCallback(HWND Window,
             // Read Buffers from Files
             if(startup)
             {
-                ReadBuffersFromFiles(Window);
+                if(!ReadBuffersFromFiles(Window))
+                {
+                    MessageBoxW(Window, L"Could not read some files into the buffers!!", L"Error", MB_OK | MB_ICONERROR);
+                }
+                
+                // start program with checkbox Always On Top checked
                 SendMessage(GetDlgItem(Window, ID_CHECKBOX_ALWAYS_ON_TOP), BM_SETCHECK, BST_CHECKED, 0);
                 startup = 0;
             }
@@ -211,7 +215,10 @@ MainWindowCallback(HWND Window,
             else if(wmId >= ID_BUTTON_COPY1 && wmId <= ID_BUTTON_COPY10)
             {
                 int bufferIndex = wmId - ID_BUTTON_COPY1;
-                CopyBufferToClipboard(Window, ID_EDIT1 +  bufferIndex);
+                if(!CopyBufferToClipboard(Window, ID_EDIT1 +  bufferIndex))
+                {
+                    MessageBoxW(Window, L"Unable to copy buffer to clipboard!!", L"Error", MB_OK | MB_ICONERROR);
+                }
             }
             
             // Handle Clear All button
@@ -251,7 +258,7 @@ MainWindowCallback(HWND Window,
         case WM_CLOSE:
         {
             DestroyWindow(Window);   
-            return 0;
+            Result = 0;
         }
         
         case WM_PAINT:
@@ -264,7 +271,7 @@ MainWindowCallback(HWND Window,
         case WM_DESTROY:
         {
             PostQuitMessage(0);  
-            return 0;
+            Result = 0;
         }
         
         case WM_ACTIVATEAPP:
@@ -358,27 +365,43 @@ DeleteBufferFiles()
 bool32
 ReadBuffersFromFiles(HWND hwnd)
 {
+    bool32 Result = 1;
+    
     WCHAR Filename[64];
-    debug_read_file_result Result = {};
     for(int i = 0; i < g_NumOfBuffers; i++)
     {
         _snwprintf_s(Filename, ArrayCount(Filename), _TRUNCATE, L"bufferpaste-%d.txt", ID_EDIT1 + i);
-        Result = ReadFromFile(Filename);
-        SetWindowTextW(GetDlgItem(hwnd, ID_EDIT1 + i), (WCHAR*)Result.Contents);
         
-        if(Result.Contents)
+        // Check if file exists before reading the file
+        DWORD attributes = GetFileAttributesW(Filename);
+        if(attributes != INVALID_FILE_ATTRIBUTES)
         {
-            VirtualFree(Result.Contents, 0, MEM_RELEASE);
+            debug_read_file_result File_Read_Result = ReadFromFile(Filename);
+            
+            if(File_Read_Result.Contents && File_Read_Result.ContentsSize > 0)
+            {
+                SetWindowTextW(GetDlgItem(hwnd, ID_EDIT1 + i), (WCHAR*)File_Read_Result.Contents);
+                VirtualFree(File_Read_Result.Contents, 0, MEM_RELEASE);
+            }
+            else
+            {
+                // Could not read any data from file!!
+                Result = 0;
+            }
+        }
+        else
+        {
+            // File does not exist so no read to read it
         }
     }
     
-    return 1;
+    return(Result);
 }
 
 bool32
 WriteBufferToFileUTF16(int editId, WCHAR *buffer, uint32 textLength)
 {
-    bool32 Result = false;
+    bool32 Result = 1;
     
     WCHAR filename[64];
     _snwprintf_s(filename, ArrayCount(filename), _TRUNCATE, L"bufferpaste-%d.txt", editId);
@@ -395,31 +418,35 @@ WriteBufferToFileUTF16(int editId, WCHAR *buffer, uint32 textLength)
         }
         else
         {
+            Result = 0;
         }
         
         CloseHandle(FileHandle);
     }
     else
     {
+        Result = 0;
     }
     
     return(Result);
 }
 
 
-void
+bool32
 SaveClipboardToBufferUTF16(HWND hwnd, int editId)
 {
+    bool32 Result = 1;
+    
     if (!OpenClipboard(hwnd)) {
         MessageBoxW(hwnd, L"Cannot open clipboard!", L"Error", MB_OK | MB_ICONERROR);
-        return;
+        Result = 0;
     }
     
     HANDLE hData = GetClipboardData(CF_UNICODETEXT);
     if (hData == NULL) {
         CloseClipboard();
         MessageBoxW(hwnd, L"No text data in clipboard!", L"Info", MB_OK | MB_ICONINFORMATION);
-        return;
+        Result = 0;
     }
     
     WCHAR* pszText = (WCHAR *)GlobalLock(hData);
@@ -441,16 +468,20 @@ SaveClipboardToBufferUTF16(HWND hwnd, int editId)
     }
     
     CloseClipboard();
+    
+    return(Result);
 }
 
-void
+bool32
 CopyBufferToClipboard(HWND hwnd, int editId)
 {
+    bool32 Result = 1;
+    
     // Get text from edit control
     int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
     if (textLength == 0) {
         MessageBoxW(hwnd, L"Buffer is empty!", L"Info", MB_OK | MB_ICONINFORMATION);
-        return;
+        Result = 0;
     }
     
     void* buffer = VirtualAlloc(0, ((textLength + 1) * sizeof(WCHAR)), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
@@ -458,7 +489,7 @@ CopyBufferToClipboard(HWND hwnd, int editId)
     
     if (!OpenClipboard(hwnd)) {
         MessageBoxW(hwnd, L"Cannot open clipboard!", L"Error", MB_OK | MB_ICONERROR);
-        return;
+        Result = 0;
     }
     
     EmptyClipboard();
@@ -480,15 +511,21 @@ CopyBufferToClipboard(HWND hwnd, int editId)
     
     CloseClipboard();
     VirtualFree(buffer, 0, MEM_RELEASE);
+    
+    return(Result);
 }
 
-void
+bool32
 ClearAllBuffers(HWND hwnd)
 {
+    bool32 Result = 1;
+    
     for (int i = 0; i < g_NumOfBuffers; i++) {
         SetWindowText(GetDlgItem(hwnd, ID_EDIT1 + i), "");
     }
     SetWindowText(GetDlgItem(hwnd, ID_STATIC1), "All buffers cleared");
+    
+    return(Result);
 }
 
 int CALLBACK
