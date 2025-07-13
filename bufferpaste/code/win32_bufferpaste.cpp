@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <stdio.h>
 #include "resource.h"
 
 enum ButtonIDs {
@@ -108,13 +109,15 @@ Win32GetLastWriteTime(char *Filename)
 LRESULT CALLBACK MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
 debug_read_file_result ReadFromFile(WCHAR *filename);
 bool32 ReadBuffersFromFiles(HWND Window);
-bool32 WriteBufferToFileUTF16(int editId, char *buffer, uint32 textLength);
+bool32 WriteBufferToFileUTF16(int editId, WCHAR *buffer, uint32 textLength);
 bool32 DeleteBufferFiles();
 void SaveClipboardToBufferUTF16(HWND Window, int editId);
 void CopyBufferToClipboard(HWND Window, int editId);
 void ClearAllBuffers(HWND Window);
 
 //Filename = "bufferpaste-%d.txt";
+
+local_persist int startup = 1;
 
 LRESULT CALLBACK
 MainWindowCallback(HWND Window,
@@ -123,7 +126,7 @@ MainWindowCallback(HWND Window,
                    LPARAM LParam)
 {
     LRESULT Result = 0;
-    int startup = 1;
+    //int startup = 1;
     
     switch(Message)
     {
@@ -142,7 +145,7 @@ MainWindowCallback(HWND Window,
             
             for (int i = 0; i < g_NumOfBuffers; i++) {
                 char label[20];
-                wsprintf(label, "Buffer %d:", i + 1);
+                snprintf(label, sizeof(label), "Buffer %d:", i + 1);
                 
                 // Label
                 CreateWindow("STATIC", label,
@@ -268,7 +271,6 @@ MainWindowCallback(HWND Window,
         
         default:
         {
-            // OutputDebugStringA("default\n");
             Result = DefWindowProc(Window, Message, WParam, LParam);
         } break;
     }
@@ -327,7 +329,7 @@ DeleteBufferFiles()
     
     for(int i = 0; i < g_NumOfBuffers; i++)
     {
-        wsprintfW(Filename, L"bufferpaste-%d.txt", ID_EDIT1 + i);
+        _snwprintf_s(Filename, ArrayCount(Filename), _TRUNCATE, L"bufferpaste-%d.txt", ID_EDIT1 + i);
         DeleteFileW(Filename);
     }
     
@@ -342,9 +344,14 @@ ReadBuffersFromFiles(HWND hwnd)
     debug_read_file_result Result = {};
     for(int i = 0; i < g_NumOfBuffers; i++)
     {
-        wsprintfW(Filename, L"bufferpaste-%d.txt", ID_EDIT1 + i);
+        _snwprintf_s(Filename, ArrayCount(Filename), _TRUNCATE, L"bufferpaste-%d.txt", ID_EDIT1 + i);
         Result = ReadFromFile(Filename);
         SetWindowTextW(GetDlgItem(hwnd, ID_EDIT1 + i), (WCHAR*)Result.Contents);
+        
+        if(Result.Contents)
+        {
+            VirtualFree(Result.Contents, 0, MEM_RELEASE);
+        }
     }
     
     return 1;
@@ -356,7 +363,7 @@ WriteBufferToFileUTF16(int editId, WCHAR *buffer, uint32 textLength)
     bool32 Result = false;
     
     WCHAR filename[32];
-    wsprintfW(filename, L"bufferpaste-%d.txt", editId);
+    _snwprintf_s(filename, ArrayCount(filename), _TRUNCATE, L"bufferpaste-%d.txt", editId);
     
     HANDLE FileHandle = CreateFileW(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
     if(FileHandle != INVALID_HANDLE_VALUE)
@@ -405,13 +412,14 @@ SaveClipboardToBufferUTF16(HWND hwnd, int editId)
         
         // Show confirmation
         WCHAR msg[100];
-        wsprintfW(msg, L"Clipboard content saved to Buffer %d", editId - ID_EDIT1 + 1);
+        _snwprintf_s(msg, ArrayCount(msg), _TRUNCATE, L"Clipboard content saved to Buffer %d", editId - ID_EDIT1 + 1);
         SetWindowTextW(GetDlgItem(hwnd, ID_STATIC1), msg);
         
         int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
         void* fileBuffer = VirtualAlloc(0, ((textLength + 1) * sizeof(WCHAR)), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
         GetWindowTextW(GetDlgItem(hwnd, editId), (WCHAR *)fileBuffer, textLength + 1);
         WriteBufferToFileUTF16(editId, (WCHAR *)fileBuffer, textLength + 1);
+        VirtualFree(fileBuffer, 0, MEM_RELEASE);
     }
     
     CloseClipboard();
@@ -442,18 +450,18 @@ CopyBufferToClipboard(HWND hwnd, int editId)
         WCHAR* pMem = (WCHAR*)GlobalLock(hMem);
         int actualLength = GetWindowTextW(GetDlgItem(hwnd, editId), pMem, textLength + 1);
         pMem[actualLength] = L'\0';
-        //wcscpy_s(pMem, textLength + 1, (WCHAR *)buffer);
         GlobalUnlock(hMem);
         
         SetClipboardData(CF_UNICODETEXT, hMem);
         
         // Show confirmation
         WCHAR msg[100];
-        wsprintfW(msg, L"Buffer %d copied to clipboard", editId - ID_EDIT1 + 1);
+        _snwprintf_s(msg, ArrayCount(msg), _TRUNCATE, L"Buffer %d copied to clipboard", editId - ID_EDIT1 + 1);
         SetWindowTextW(GetDlgItem(hwnd, ID_STATIC1), msg);
     }
     
     CloseClipboard();
+    VirtualFree(buffer, 0, MEM_RELEASE);
 }
 
 void
