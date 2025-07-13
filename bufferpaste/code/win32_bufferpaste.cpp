@@ -422,7 +422,6 @@ SaveClipboardToBufferUTF16(HWND hwnd, int editId)
         int textLength = GetWindowTextLengthW(GetDlgItem(hwnd, editId));
         void* fileBuffer = VirtualAlloc(0, ((textLength + 1) * sizeof(WCHAR)), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
         GetWindowTextW(GetDlgItem(hwnd, editId), (WCHAR *)fileBuffer, textLength + 1);
-        //WriteBufferToFileUTF16(editId, (WCHAR *)fileBuffer, textLength + 1);
         WriteBufferToFileUTF16(editId, (WCHAR *)fileBuffer, textLength);
         VirtualFree(fileBuffer, 0, MEM_RELEASE);
     }
