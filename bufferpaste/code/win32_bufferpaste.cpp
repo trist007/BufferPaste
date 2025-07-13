@@ -218,7 +218,10 @@ MainWindowCallback(HWND Window,
             else if(wmId == ID_BUTTON_CLEAR_ALL)
             {
                 ClearAllBuffers(Window);
-                DeleteBufferFiles();
+                if(!DeleteBufferFiles())
+                {
+                    MessageBoxW(Window, L"Cannot delete Files!!", L"Error", MB_OK | MB_ICONERROR);
+                }
             }
             
             // Handle Always On Top
@@ -324,16 +327,27 @@ ReadFromFile(WCHAR *Filename)
 bool32
 DeleteBufferFiles()
 {
-    bool32 Result = true;
-    WCHAR Filename[32];
+    bool32 Result = 1;
+    WCHAR Filename[64];
     
     for(int i = 0; i < g_NumOfBuffers; i++)
     {
         _snwprintf_s(Filename, ArrayCount(Filename), _TRUNCATE, L"bufferpaste-%d.txt", ID_EDIT1 + i);
         
-        if(!DeleteFileW(Filename))
+        // Check if file exists before trying to delete
+        DWORD attributes = GetFileAttributesW(Filename);
+        if(attributes != INVALID_FILE_ATTRIBUTES)
         {
-            Result = false;
+            
+            // File exists delete it
+            if(!DeleteFileW(Filename))
+            {
+                Result = 0;
+            }
+            else
+            {
+                // If file does not exist it's ok nothing to delete
+            }
         }
     }
     
@@ -344,7 +358,7 @@ DeleteBufferFiles()
 bool32
 ReadBuffersFromFiles(HWND hwnd)
 {
-    WCHAR Filename[32];
+    WCHAR Filename[64];
     debug_read_file_result Result = {};
     for(int i = 0; i < g_NumOfBuffers; i++)
     {
@@ -366,7 +380,7 @@ WriteBufferToFileUTF16(int editId, WCHAR *buffer, uint32 textLength)
 {
     bool32 Result = false;
     
-    WCHAR filename[32];
+    WCHAR filename[64];
     _snwprintf_s(filename, ArrayCount(filename), _TRUNCATE, L"bufferpaste-%d.txt", editId);
     
     HANDLE FileHandle = CreateFileW(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
